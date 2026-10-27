@@ -24,13 +24,7 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      - name: 4. Set up Flutter 3.29.0
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: "3.29.0"
-          channel: "stable"
-
-      - name: 5. Accept Android Licenses & Install Flet
+      - name: 4. Accept Android Licenses & Install Flet
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           sudo apt-get update
@@ -38,13 +32,13 @@ jobs:
           pip install --upgrade pip
           pip install "flet[all]==0.27.6" yt-dlp
 
-      - name: 6. Build Android APK
+      - name: 5. Build Android APK
         env:
           PYTHONUTF8: "1"
         run: |
-          flet build apk --yes -v || flet build apk -v
+          flet build apk --yes -v
 
-      - name: 7. Upload APK Artifact
+      - name: 6. Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: VideoDownloader-Android-APK
