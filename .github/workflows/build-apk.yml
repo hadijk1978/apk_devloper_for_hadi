@@ -3,42 +3,51 @@ name: Build Android APK
 on:
   push:
     branches: [ "main", "master" ]
-  workflow_dispatch: # امکان اجرای دستی با یک کلیک در گیت‌هاب
+  workflow_dispatch:
 
 jobs:
   build-apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: 1. دریافت کدهای پروژه
         uses: actions/checkout@v4
 
-      - name: 2. نصب پایتون
+      - name: 2. نصب پایتون 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: 3. نصب جاوا (مورد نیاز اندروید)
-        uses: actions/setup-java@v4
+      - name: 3. نصب جاوا 17 (نسخه v5)
+        uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: "17"
 
-      - name: 4. نصب فلاتر (موتور گرافیکی Flet)
+      - name: 4. راه‌اندازی Android SDK و تایید لایسنس‌ها
+        uses: android-actions/setup-android@v3
+
+      - name: 5. نصب فلاتر (نسخه سازگار با Flet 0.25)
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: "3.27.1"
           channel: "stable"
 
-      - name: 5. نصب Flet و وابستگی‌ها
+      - name: 6. نصب وابستگی‌های لینوکس و Flet
         run: |
+          sudo apt-get update
+          sudo apt-get install -y zip unzip libmpv-dev mpv
           pip install --upgrade pip
           pip install "flet[all]==0.25.2" yt-dlp
 
-      - name: 6. ساخت فایل APK اندروید
+      - name: 7. ساخت فایل APK اندروید
+        env:
+          PYTHONUTF8: "1"
         run: |
-          flet build apk --yes -v
+          yes | flutter doctor --android-licenses || true
+          flet build apk --verbose
 
-      - name: 7. آپلود فایل APK برای دانلود
+      - name: 8. آپلود فایل APK برای دانلود
         uses: actions/upload-artifact@v4
         with:
           name: VideoDownloader-Android-APK
