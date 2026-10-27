@@ -36,13 +36,23 @@ jobs:
           pip install --upgrade pip
           pip install "flet==0.24.1" yt-dlp
 
-      - name: 6. Build Android APK
+      - name: 6. Patch wakelock_plus 1.4.0 Gradle Bug
+        run: |
+          dart pub cache add wakelock_plus --version 1.4.0 || true
+          WAKELOCK_GRADLE="$HOME/.pub-cache/hosted/pub.dev/wakelock_plus-1.4.0/android/build.gradle"
+          if [ -f "$WAKELOCK_GRADLE" ]; then
+            sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' "$WAKELOCK_GRADLE"
+            sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' "$WAKELOCK_GRADLE"
+            echo "Patched wakelock_plus build.gradle successfully!"
+          fi
+
+      - name: 7. Build Android APK
         env:
           PYTHONUTF8: "1"
         run: |
           flet build apk -v
 
-      - name: 7. Upload APK Artifact
+      - name: 8. Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: VideoDownloader-Android-APK
