@@ -1,5 +1,5 @@
 [project]
-name = "video-downloader"
+name = "videodownloader"
 version = "1.0.0"
 description = "YouTube and Aparat Video Downloader"
 dependencies = [
@@ -10,8 +10,6 @@ dependencies = [
 [tool.flet]
 org = "com.mydownloader"
 product = "Video Downloader"
-company = "Personal"
-copyright = "Copyright (C) 2026"
 
 [tool.flet.android.permission]
 "android.permission.INTERNET" = true
