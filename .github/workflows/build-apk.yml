@@ -10,44 +10,41 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: 1. دریافت کدهای پروژه
+      - name: 1. Checkout code
         uses: actions/checkout@v4
 
-      - name: 2. نصب پایتون 3.11
+      - name: 2. Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: 3. نصب جاوا 17 (نسخه v5)
+      - name: 3. Set up Java 17
         uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: "17"
 
-      - name: 4. راه‌اندازی Android SDK و تایید لایسنس‌ها
-        uses: android-actions/setup-android@v3
-
-      - name: 5. نصب فلاتر (نسخه سازگار با Flet 0.25)
+      - name: 4. Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.27.1"
           channel: "stable"
 
-      - name: 6. نصب وابستگی‌های لینوکس و Flet
+      - name: 5. Accept Android SDK Licenses & Install Dependencies
         run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           sudo apt-get update
           sudo apt-get install -y zip unzip libmpv-dev mpv
           pip install --upgrade pip
           pip install "flet[all]==0.25.2" yt-dlp
 
-      - name: 7. ساخت فایل APK اندروید
+      - name: 6. Build Android APK
         env:
           PYTHONUTF8: "1"
         run: |
-          yes | flutter doctor --android-licenses || true
-          flet build apk --verbose
+          flet build apk -v
 
-      - name: 8. آپلود فایل APK برای دانلود
+      - name: 7. Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: VideoDownloader-Android-APK
