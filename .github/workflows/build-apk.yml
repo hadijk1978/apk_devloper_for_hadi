@@ -1,1 +1,45 @@
+name: Build Android APK
 
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # امکان اجرای دستی با یک کلیک در گیت‌هاب
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. دریافت کدهای پروژه
+        uses: actions/checkout@v4
+
+      - name: 2. نصب پایتون
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 3. نصب جاوا (مورد نیاز اندروید)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: 4. نصب فلاتر (موتور گرافیکی Flet)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: 5. نصب Flet و وابستگی‌ها
+        run: |
+          pip install --upgrade pip
+          pip install "flet[all]==0.25.2" yt-dlp
+
+      - name: 6. ساخت فایل APK اندروید
+        run: |
+          flet build apk --yes -v
+
+      - name: 7. آپلود فایل APK برای دانلود
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoDownloader-Android-APK
+          path: build/apk/*.apk
