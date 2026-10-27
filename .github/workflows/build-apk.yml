@@ -26,9 +26,7 @@ jobs:
 
       - name: 4. Accept Android Licenses & Install Flet
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          sudo apt-get update
-          sudo apt-get install -y zip unzip libmpv-dev mpv libgtk-3-dev
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
           pip install --upgrade pip
           pip install "flet[all]==0.27.6" yt-dlp
 
@@ -36,7 +34,7 @@ jobs:
         env:
           PYTHONUTF8: "1"
         run: |
-          flet build apk --yes -v
+          flet build apk -v
 
       - name: 6. Upload APK Artifact
         uses: actions/upload-artifact@v4
