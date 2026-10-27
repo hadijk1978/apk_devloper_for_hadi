@@ -78,7 +78,7 @@ class MobileDownloader:
 
         self.start_btn = ft.ElevatedButton(
             text="شروع دانلود",
-            icon=ft.Icons.DOWNLOAD,
+            icon="DOWNLOAD",
             on_click=self._on_start,
             expand=True,
             height=45,
@@ -86,7 +86,7 @@ class MobileDownloader:
 
         self.cancel_btn = ft.OutlinedButton(
             text="توقف",
-            icon=ft.Icons.STOP,
+            icon="STOP",
             on_click=self._on_cancel,
             disabled=True,
             height=45,
