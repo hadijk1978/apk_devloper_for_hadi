@@ -13,10 +13,10 @@ jobs:
       - name: 1. Checkout code
         uses: actions/checkout@v4
 
-      - name: 2. Set up Python 3.12
+      - name: 2. Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
 
       - name: 3. Set up Java 17
         uses: actions/setup-java@v5
@@ -24,19 +24,25 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      - name: 4. Accept Android Licenses & Install Flet
+      - name: 4. Set up Flutter 3.24.5
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.5"
+          channel: "stable"
+
+      - name: 5. Accept Android Licenses & Install Flet 0.24.1
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
           pip install --upgrade pip
-          pip install "flet[all]==0.27.6" yt-dlp
+          pip install "flet==0.24.1" yt-dlp
 
-      - name: 5. Build Android APK
+      - name: 6. Build Android APK
         env:
           PYTHONUTF8: "1"
         run: |
           flet build apk -v
 
-      - name: 6. Upload APK Artifact
+      - name: 7. Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: VideoDownloader-Android-APK
