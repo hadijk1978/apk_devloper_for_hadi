@@ -1,1 +1,11 @@
+[project]
+name = "videodownloader"
+version = "1.0.0"
+description = "YouTube and Aparat Video Downloader"
+dependencies = [
+    "yt-dlp"
+]
 
+[tool.flet.flutter.pubspec.dependency_overrides]
+wakelock_plus = "1.2.8"
+package_info_plus = "8.0.2"
