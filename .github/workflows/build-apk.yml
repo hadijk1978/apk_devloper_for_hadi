@@ -47,6 +47,8 @@ jobs:
           txt = open(p).read()
           txt = txt.replace("wakelock_plus: ^1.2.8", "wakelock_plus: 1.2.8")
           txt = txt.replace("package_info_plus: ^8.0.2", "package_info_plus: 8.0.2")
+          # افزودن پکیج open_filex برای باز کردن فایل در اندروید
+          txt = txt.replace("dependencies:", "dependencies:\n  open_filex: ^4.4.0")
           txt += "\ndependency_overrides:\n  wakelock_plus: 1.2.8\n  package_info_plus: 8.0.2\n"
           open(p, "w").write(txt)
 
