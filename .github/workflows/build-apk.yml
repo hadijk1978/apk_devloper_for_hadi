@@ -49,6 +49,12 @@ jobs:
           txt = txt.replace("package_info_plus: ^8.0.2", "package_info_plus: 8.0.2")
           txt += "\ndependency_overrides:\n  wakelock_plus: 1.2.8\n  package_info_plus: 8.0.2\n"
           open(p, "w").write(txt)
+
+          m = "/tmp/flet-template/{{cookiecutter.out_dir}}/android/app/src/main/AndroidManifest.xml"
+          m_txt = open(m).read()
+          perms = "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/><uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/><uses-permission android:name=\"android.permission.MANAGE_EXTERNAL_STORAGE\"/>"
+          m_txt = m_txt.replace("<application", perms + "\n    <application android:requestLegacyExternalStorage=\"true\"")
+          open(m, "w").write(m_txt)
           '
           flet build apk -v --template-dir /tmp/flet-template
 
