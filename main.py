@@ -276,4 +276,95 @@ class MobileDownloader:
             except Exception:
                 if is_aparat:
                     self._log("اتصال مستقیم به API آپارات...")
-                    direct_url, ap_title, ap_hash = self._resolve_
+                    direct_url, ap_title, ap_hash = self._resolve_aparat_direct_url(url, height_limit)
+                    if not direct_url:
+                        raise
+                    safe_title = re.sub(r'[\\/*?:"<>|]', "_", ap_title).strip()
+                    options["outtmpl"] = os.path.join(out_dir, f"{safe_title} [{ap_hash}].%(ext)s")
+                    with yt_dlp.YoutubeDL(options) as ydl:
+                        info = ydl.extract_info(direct_url, download=True)
+                        expected_file = ydl.prepare_filename(info)
+                else:
+                    raise
+
+            base_name = os.path.splitext(expected_file)[0]
+            self._log(f"فایل ذخیره شد: {os.path.basename(expected_file)}")
+
+            # مرحله ۲: دانلود زیرنویس فارسی
+            if sub_enabled and not is_aparat and not self.cancel_event.is_set():
+                self._log("مرحله ۲: بررسی زیرنویس فارسی...")
+                sub_opts = dict(options)
+                sub_opts.update({
+                    "skip_download": True,
+                    "writesubtitles": True,
+                    "writeautomaticsub": True,
+                    "subtitleslangs": ["fa"],
+                    "subtitlesformat": "srt/vtt/best",
+                    "sleep_subtitles": 2,
+                })
+                try:
+                    with yt_dlp.YoutubeDL(sub_opts) as ydl_sub:
+                        ydl_sub.download([url])
+
+                    vtt_path = base_name + ".fa.vtt"
+                    srt_path = base_name + ".fa.srt"
+                    if os.path.exists(vtt_path) and not os.path.exists(srt_path):
+                        self._convert_vtt_to_srt(vtt_path, srt_path)
+                        self._log("زیرنویس فارسی به SRT تبدیل و ذخیره شد.")
+                except Exception as sub_e:
+                    self._log(f"زیرنویس دریافت نشد: {sub_e}")
+
+            self._set_status("عملیات دانلود با موفقیت به پایان رسید!", 1.0)
+
+        except Exception as exc:
+            self._set_status("خطا یا توقف در دانلود", 0)
+            self._log(f"خطا: {exc}")
+        finally:
+            self._set_busy(False)
+
+    @staticmethod
+    def _convert_vtt_to_srt(vtt_path, srt_path):
+        try:
+            with open(vtt_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            srt_lines = []
+            counter = 1
+            for line in lines:
+                stripped = line.strip()
+                if stripped.startswith(("WEBVTT", "Kind:", "Language:")):
+                    continue
+                if "-->" in line:
+                    parts = line.replace(".", ",").split("-->")
+                    if len(parts) == 2:
+                        start = parts[0].strip()
+                        end = parts[1].strip().split(" ")[0]
+                        srt_lines.append(f"{counter}\n{start} --> {end}\n")
+                        counter += 1
+                else:
+                    srt_lines.append(line)
+            with open(srt_path, "w", encoding="utf-8") as f:
+                f.writelines(srt_lines)
+            os.remove(vtt_path)
+        except Exception:
+            pass
+
+
+def main(page: ft.Page):
+    try:
+        MobileDownloader(page)
+    except Exception:
+        # اگر هر خطایی هنگام بالا آمدن برنامه رخ داد، به جای صفحه طوسی، متن خطا را نشان بده
+        err_msg = traceback.format_exc()
+        page.add(
+            ft.SafeArea(
+                ft.Column([
+                    ft.Text("خطا در اجرای اولیه برنامه:", color="red", size=18, weight=ft.FontWeight.BOLD),
+                    ft.TextField(value=err_msg, multiline=True, read_only=True, text_size=11),
+                ])
+            )
+        )
+        page.update()
+
+
+if __name__ == "__main__":
+    ft.app(target=main)
