@@ -40,6 +40,7 @@ jobs:
         env:
           PYTHONUTF8: "1"
         run: |
+          rm -rf /tmp/flet-template
           git clone --branch 0.24.1 --depth 1 https://github.com/flet-dev/flet-build-template.git /tmp/flet-template
           python3 -c '
           p = "/tmp/flet-template/{{cookiecutter.out_dir}}/pubspec.yaml"
@@ -48,7 +49,6 @@ jobs:
           txt = txt.replace("package_info_plus: ^8.0.2", "package_info_plus: 8.0.2")
           txt += "\ndependency_overrides:\n  wakelock_plus: 1.2.8\n  package_info_plus: 8.0.2\n"
           open(p, "w").write(txt)
-          print("Template pubspec.yaml locked to stable versions successfully!")
           '
           flet build apk -v --template-dir /tmp/flet-template
 
