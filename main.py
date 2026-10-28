@@ -12,9 +12,9 @@ class MobileDownloader:
         self.page = page
         self.page.title = "دانلودر یوتیوب و آپارات"
         self.page.rtl = True
-        self.page.theme_mode = ft.ThemeMode.LIGHT
+        self.page.theme_mode = "light"
         self.page.padding = 16
-        self.page.scroll = ft.ScrollMode.AUTO
+        self.page.scroll = "auto"
 
         self.is_downloading = False
         self.cancel_event = threading.Event()
@@ -23,7 +23,6 @@ class MobileDownloader:
         self._build_ui()
 
     def _get_default_download_dir(self):
-        # مسیر استاندارد پوشه دانلود در اندروید (سامسونگ و سایر گوشی‌ها)
         android_dl = "/storage/emulated/0/Download"
         try:
             if os.path.exists(android_dl):
@@ -31,7 +30,6 @@ class MobileDownloader:
         except Exception:
             pass
 
-        # مسیر جایگزین در صورت محدودیت دسترسی اندروید ۱۴
         app_storage = os.environ.get("FLET_APP_STORAGE_DATA")
         if app_storage:
             return app_storage
@@ -42,14 +40,14 @@ class MobileDownloader:
         self.url_input = ft.TextField(
             label="لینک ویدیو (یوتیوب، آپارات و...)",
             hint_text="https://...",
-            text_direction=ft.TextDirection.LTR,
+            rtl=False,
             border_radius=10,
         )
 
         self.path_input = ft.TextField(
             label="مسیر ذخیره‌سازی در گوشی",
             value=self.save_dir,
-            text_direction=ft.TextDirection.LTR,
+            rtl=False,
             border_radius=10,
             text_size=12,
         )
@@ -80,7 +78,6 @@ class MobileDownloader:
             value=True,
         )
 
-        # استفاده از نام متنی آیکون‌ها برای سازگاری ۱۰۰٪ با Flet 0.24.1
         self.start_btn = ft.ElevatedButton(
             text="شروع دانلود",
             icon="download",
@@ -98,7 +95,7 @@ class MobileDownloader:
         )
 
         self.progress_bar = ft.ProgressBar(value=0, bar_height=8)
-        self.status_text = ft.Text("آماده به کار", size=13, weight=ft.FontWeight.BOLD)
+        self.status_text = ft.Text("آماده به کار", size=13, weight="bold")
 
         self.log_box = ft.TextField(
             label="گزارش عملیات",
@@ -113,11 +110,11 @@ class MobileDownloader:
         self.page.add(
             ft.SafeArea(
                 ft.Column([
-                    ft.Text("دانلودر جامع ویدیو و زیرنویس", size=20, weight=ft.FontWeight.BOLD),
+                    ft.Text("دانلودر جامع ویدیو و زیرنویس", size=20, weight="bold"),
                     self.url_input,
                     self.path_input,
                     ft.Divider(height=10),
-                    ft.Text("نوع و کیفیت دانلود:", weight=ft.FontWeight.BOLD),
+                    ft.Text("نوع و کیفیت دانلود:", weight="bold"),
                     self.type_radio,
                     self.quality_dropdown,
                     self.sub_checkbox,
@@ -157,21 +154,20 @@ class MobileDownloader:
             self._set_status("خطا: لطفاً لینک ویدیو را وارد کنید.", 0)
             return
 
+        self.cancel_event.clear()
+        self.log_box.value = ""
+
         try:
             os.makedirs(out_dir, exist_ok=True)
-            # تست نوشتن فایل در پوشه دانلود گوشی
             test_file = os.path.join(out_dir, ".write_test")
             with open(test_file, "w") as f:
                 f.write("ok")
             os.remove(test_file)
         except Exception:
-            # اگر اندروید ۱۴ اجازه نوشتن در پوشه عمومی را نداد، از پوشه قابل دسترس استفاده کن
-            fallback_dir = "/storage/emulated/0/Download"
-            self._log("هشدار دسترسی حافظه: لطفاً در تنظیمات گوشی دسترسی فایل‌ها را به برنامه بدهید.")
+            fallback_dir = os.environ.get("FLET_APP_STORAGE_DATA") or os.getcwd()
+            self._log(f"ذخیره در حافظه برنامه: {fallback_dir}")
             out_dir = fallback_dir
 
-        self.cancel_event.clear()
-        self.log_box.value = ""
         self._set_busy(True)
         self._set_status("در حال آماده‌سازی دانلود...", 0)
 
@@ -290,7 +286,6 @@ class MobileDownloader:
             base_name = os.path.splitext(expected_file)[0]
             self._log(f"فایل ذخیره شد: {os.path.basename(expected_file)}")
 
-            # مرحله ۲: دانلود زیرنویس فارسی
             if sub_enabled and not is_aparat and not self.cancel_event.is_set():
                 self._log("مرحله ۲: بررسی زیرنویس فارسی...")
                 sub_opts = dict(options)
@@ -353,12 +348,11 @@ def main(page: ft.Page):
     try:
         MobileDownloader(page)
     except Exception:
-        # اگر هر خطایی هنگام بالا آمدن برنامه رخ داد، به جای صفحه طوسی، متن خطا را نشان بده
         err_msg = traceback.format_exc()
         page.add(
             ft.SafeArea(
                 ft.Column([
-                    ft.Text("خطا در اجرای اولیه برنامه:", color="red", size=18, weight=ft.FontWeight.BOLD),
+                    ft.Text("خطا در اجرای اولیه برنامه:", color="red", size=18, weight="bold"),
                     ft.TextField(value=err_msg, multiline=True, read_only=True, text_size=11),
                 ])
             )
