@@ -191,6 +191,32 @@ class MobileDownloader:
             return
 
         try:
+            # روش امن برای باز کردن فایل در اندروید و سایر سیستم‌عامل‌ها
+            import subprocess
+            import platform
+
+            file_path = self.last_downloaded_file
+            system_name = platform.system()
+
+            if system_name == "Windows":
+                os.startfile(file_path)
+            elif system_name == "Darwin":  # macOS
+                subprocess.call(["open", file_path])
+            else:  # اندروید و لینوکس
+                # در اندروید از طریق دستور استاندارد فلاتر / سیستم
+                self.page.launch_url(file_path)
+
+            self._set_status("در حال ارسال فایل به پلیر...")
+        except Exception as ex:
+            # روش جایگزین: اگر سیستم‌عامل مسدود کرد، مسیر را کپی می‌کنیم تا کاربر راحت پیدا کند
+            try:
+                self.page.set_clipboard(self.last_downloaded_file)
+                self._set_status("فایل در پوشه Download ذخیره شد (مسیر در کلیپ‌بورد کپی شد).")
+                self._log(f"مسیر فایل:\n{self.last_downloaded_file}")
+            except Exception:
+                self._set_status("فایل در پوشه Download گوشی موجود است.")
+
+        try:
             # استفاده از پکیج open_filex در فلاتر برای باز کردن مستقیم فایل با پلیر گوشی
             self.page.launch_url(self.last_downloaded_file)
             self._set_status("در حال باز کردن فایل...")
