@@ -19,6 +19,7 @@ class MobileDownloader:
         self.is_downloading = False
         self.cancel_event = threading.Event()
         self.save_dir = self._get_default_download_dir()
+        self.last_downloaded_file = None
 
         self._build_ui()
 
@@ -38,10 +39,23 @@ class MobileDownloader:
 
     def _build_ui(self):
         self.url_input = ft.TextField(
-            label="لینک ویدیو (یوتیوب، آپارات و...)",
+            label="لینک ویدیو (یوتیوب، اینستاگرام، آپارات و...)",
             hint_text="https://...",
             rtl=False,
             border_radius=10,
+            expand=True,
+        )
+
+        self.paste_btn = ft.IconButton(
+            icon="content_paste",
+            tooltip="چسباندن از کلیپ‌بورد",
+            on_click=self._on_paste_url,
+        )
+
+        self.clear_btn = ft.IconButton(
+            icon="clear",
+            tooltip="پاک کردن لینک",
+            on_click=self._on_clear_url,
         )
 
         self.path_input = ft.TextField(
@@ -97,12 +111,40 @@ class MobileDownloader:
         self.progress_bar = ft.ProgressBar(value=0, bar_height=8)
         self.status_text = ft.Text("آماده به کار", size=13, weight="bold")
 
+        self.file_name_text = ft.Text("", size=12, weight="bold", color="#1b5e20")
+        self.open_file_card = ft.Container(
+            visible=False,
+            padding=10,
+            border_radius=10,
+            bgcolor="#e8f5e9",
+            content=ft.Column([
+                ft.Row([
+                    ft.Icon(name="check_circle", color="#2e7d32", size=20),
+                    ft.Text("فایل آماده است:", size=12, weight="bold", color="#2e7d32"),
+                ], spacing=6),
+                self.file_name_text,
+                ft.Row([
+                    ft.ElevatedButton(
+                        text="پخش و باز کردن فایل",
+                        icon="play_arrow",
+                        on_click=self._on_open_file,
+                        expand=True,
+                    ),
+                    ft.OutlinedButton(
+                        text="کپی مسیر",
+                        icon="folder_open",
+                        on_click=self._on_copy_file_path,
+                    ),
+                ], spacing=8),
+            ], spacing=6),
+        )
+
         self.log_box = ft.TextField(
             label="گزارش عملیات",
             multiline=True,
             read_only=True,
-            min_lines=6,
-            max_lines=8,
+            min_lines=5,
+            max_lines=7,
             text_size=12,
             border_radius=10,
         )
@@ -111,19 +153,58 @@ class MobileDownloader:
             ft.SafeArea(
                 ft.Column([
                     ft.Text("دانلودر جامع ویدیو و زیرنویس", size=20, weight="bold"),
-                    self.url_input,
+                    ft.Row([self.url_input, self.paste_btn, self.clear_btn], spacing=4),
                     self.path_input,
-                    ft.Divider(height=10),
+                    ft.Divider(height=8),
                     ft.Text("نوع و کیفیت دانلود:", weight="bold"),
                     self.type_radio,
                     self.quality_dropdown,
                     self.sub_checkbox,
                     ft.Row([self.start_btn, self.cancel_btn], spacing=10),
                     ft.Column([self.progress_bar, self.status_text], spacing=5),
+                    self.open_file_card,
                     self.log_box,
                 ], spacing=10)
             )
         )
+
+    def _on_paste_url(self, e):
+        try:
+            clip_text = self.page.get_clipboard()
+            if clip_text and clip_text.strip():
+                self.url_input.value = clip_text.strip()
+                self._set_status("لینک از کلیپ‌بورد جای‌گذاری شد.")
+            else:
+                self._set_status("کلیپ‌بورد خالی است!")
+        except Exception as ex:
+            self._log(f"خطا در کلیپ‌بورد: {ex}")
+        self.page.update()
+
+    def _on_clear_url(self, e):
+        self.url_input.value = ""
+        self._set_status("آماده به کار", 0)
+        self.page.update()
+
+    def _on_open_file(self, e):
+        if not self.last_downloaded_file or not os.path.exists(self.last_downloaded_file):
+            self._set_status("فایل پیدا نشد!")
+            return
+
+        try:
+            # استفاده از پکیج open_filex در فلاتر برای باز کردن مستقیم فایل با پلیر گوشی
+            self.page.launch_url(self.last_downloaded_file)
+            self._set_status("در حال باز کردن فایل...")
+        except Exception as ex:
+            self._log(f"امکان پخش مستقیم نبود: {ex}")
+            self._set_status("فایل در پوشه Download گوشی موجود است.")
+
+    def _on_copy_file_path(self, e):
+        if self.last_downloaded_file:
+            try:
+                self.page.set_clipboard(self.last_downloaded_file)
+                self._set_status("مسیر فایل کپی شد.")
+            except Exception:
+                pass
 
     def _log(self, msg: str):
         current = self.log_box.value or ""
@@ -141,6 +222,8 @@ class MobileDownloader:
         self.start_btn.disabled = busy
         self.cancel_btn.disabled = not busy
         self.url_input.disabled = busy
+        self.paste_btn.disabled = busy
+        self.clear_btn.disabled = busy
         self.page.update()
 
     def _on_start(self, e):
@@ -151,22 +234,18 @@ class MobileDownloader:
         out_dir = (self.path_input.value or "").strip()
 
         if not url:
-            self._set_status("خطا: لطفاً لینک ویدیو را وارد کنید.", 0)
+            self._set_status("خطا: لطفاً لینک را وارد کنید.", 0)
             return
 
         self.cancel_event.clear()
         self.log_box.value = ""
+        self.open_file_card.visible = False
+        self.last_downloaded_file = None
 
         try:
             os.makedirs(out_dir, exist_ok=True)
-            test_file = os.path.join(out_dir, ".write_test")
-            with open(test_file, "w") as f:
-                f.write("ok")
-            os.remove(test_file)
         except Exception:
-            fallback_dir = os.environ.get("FLET_APP_STORAGE_DATA") or os.getcwd()
-            self._log(f"ذخیره در حافظه برنامه: {fallback_dir}")
-            out_dir = fallback_dir
+            out_dir = os.environ.get("FLET_APP_STORAGE_DATA") or os.getcwd()
 
         self._set_busy(True)
         self._set_status("در حال آماده‌سازی دانلود...", 0)
@@ -233,6 +312,7 @@ class MobileDownloader:
 
         is_aparat = "aparat.com" in url.lower()
         height_limit = int(quality) if quality and quality.isdigit() else None
+        final_filepath = [None]
 
         def progress_hook(data):
             if self.cancel_event.is_set():
@@ -243,6 +323,8 @@ class MobileDownloader:
                 spd_str = data.get("_speed_str", "").strip()
                 self._set_status(f"در حال دانلود: {pct_str} | سرعت: {spd_str}", raw_pct / 100.0)
             elif data.get("status") == "finished":
+                if data.get("filename"):
+                    final_filepath[0] = data.get("filename")
                 self._set_status("دانلود فایل اصلی کامل شد.", 1.0)
 
         if dl_type == "video":
@@ -283,8 +365,13 @@ class MobileDownloader:
                 else:
                     raise
 
-            base_name = os.path.splitext(expected_file)[0]
-            self._log(f"فایل ذخیره شد: {os.path.basename(expected_file)}")
+            actual_file = final_filepath[0] if (final_filepath[0] and os.path.exists(final_filepath[0])) else expected_file
+            base_name = os.path.splitext(actual_file)[0]
+
+            self.last_downloaded_file = actual_file
+            self.file_name_text.value = os.path.basename(actual_file)
+            self.open_file_card.visible = True
+            self._log(f"فایل ذخیره شد: {os.path.basename(actual_file)}")
 
             if sub_enabled and not is_aparat and not self.cancel_event.is_set():
                 self._log("مرحله ۲: بررسی زیرنویس فارسی...")
@@ -305,7 +392,7 @@ class MobileDownloader:
                     srt_path = base_name + ".fa.srt"
                     if os.path.exists(vtt_path) and not os.path.exists(srt_path):
                         self._convert_vtt_to_srt(vtt_path, srt_path)
-                        self._log("زیرنویس فارسی به SRT تبدیل و ذخیره شد.")
+                        self._log("زیرنویس فارسی تبدیل و ذخیره شد.")
                 except Exception as sub_e:
                     self._log(f"زیرنویس دریافت نشد: {sub_e}")
 
