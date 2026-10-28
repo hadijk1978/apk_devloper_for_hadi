@@ -189,7 +189,6 @@ def _on_open_file(self, e):
         if not self.last_downloaded_file or not os.path.exists(self.last_downloaded_file):
             self._set_status("فایل پیدا نشد!")
             return
-
         try:
             # کپی کردن مسیر دقیق فایل در کلیپ‌بورد برای دسترسی سریع
             self.page.set_clipboard(self.last_downloaded_file)
