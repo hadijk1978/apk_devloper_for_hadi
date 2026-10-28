@@ -185,43 +185,17 @@ class MobileDownloader:
         self._set_status("آماده به کار", 0)
         self.page.update()
 
-    def _on_open_file(self, e):
+def _on_open_file(self, e):
         if not self.last_downloaded_file or not os.path.exists(self.last_downloaded_file):
             self._set_status("فایل پیدا نشد!")
             return
 
         try:
-            # روش امن برای باز کردن فایل در اندروید و سایر سیستم‌عامل‌ها
-            import subprocess
-            import platform
-
-            file_path = self.last_downloaded_file
-            system_name = platform.system()
-
-            if system_name == "Windows":
-                os.startfile(file_path)
-            elif system_name == "Darwin":  # macOS
-                subprocess.call(["open", file_path])
-            else:  # اندروید و لینوکس
-                # در اندروید از طریق دستور استاندارد فلاتر / سیستم
-                self.page.launch_url(file_path)
-
-            self._set_status("در حال ارسال فایل به پلیر...")
+            # کپی کردن مسیر دقیق فایل در کلیپ‌بورد برای دسترسی سریع
+            self.page.set_clipboard(self.last_downloaded_file)
+            self._set_status("مسیر فایل در کلیپ‌بورد کپی شد!")
+            self._log(f"📁 فایل در پوشه Download ذخیره است.\nمسیر: {self.last_downloaded_file}")
         except Exception as ex:
-            # روش جایگزین: اگر سیستم‌عامل مسدود کرد، مسیر را کپی می‌کنیم تا کاربر راحت پیدا کند
-            try:
-                self.page.set_clipboard(self.last_downloaded_file)
-                self._set_status("فایل در پوشه Download ذخیره شد (مسیر در کلیپ‌بورد کپی شد).")
-                self._log(f"مسیر فایل:\n{self.last_downloaded_file}")
-            except Exception:
-                self._set_status("فایل در پوشه Download گوشی موجود است.")
-
-        try:
-            # استفاده از پکیج open_filex در فلاتر برای باز کردن مستقیم فایل با پلیر گوشی
-            self.page.launch_url(self.last_downloaded_file)
-            self._set_status("در حال باز کردن فایل...")
-        except Exception as ex:
-            self._log(f"امکان پخش مستقیم نبود: {ex}")
             self._set_status("فایل در پوشه Download گوشی موجود است.")
 
     def _on_copy_file_path(self, e):
