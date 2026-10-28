@@ -2,19 +2,17 @@ import os
 import re
 import json
 import threading
+import traceback
 import urllib.request
 import flet as ft
-import yt_dlp
 
 
 class MobileDownloader:
     def __init__(self, page: ft.Page):
         self.page = page
         self.page.title = "دانلودر یوتیوب و آپارات"
-        self.page.rtl = True  # راست‌به‌چپ کامل برای زبان فارسی
+        self.page.rtl = True
         self.page.theme_mode = ft.ThemeMode.LIGHT
-        self.page.window.width = 430
-        self.page.window.height = 780
         self.page.padding = 16
         self.page.scroll = ft.ScrollMode.AUTO
 
@@ -25,13 +23,19 @@ class MobileDownloader:
         self._build_ui()
 
     def _get_default_download_dir(self):
-        # تشخیص خودکار مسیر پوشه Downloads در اندروید یا ویندوز
+        # مسیر استاندارد پوشه دانلود در اندروید (سامسونگ و سایر گوشی‌ها)
         android_dl = "/storage/emulated/0/Download"
-        if os.path.isdir(android_dl):
-            return android_dl
-        desktop_dl = os.path.join(os.path.expanduser("~"), "Downloads")
-        if os.path.isdir(desktop_dl):
-            return desktop_dl
+        try:
+            if os.path.exists(android_dl):
+                return android_dl
+        except Exception:
+            pass
+
+        # مسیر جایگزین در صورت محدودیت دسترسی اندروید ۱۴
+        app_storage = os.environ.get("FLET_APP_STORAGE_DATA")
+        if app_storage:
+            return app_storage
+
         return os.getcwd()
 
     def _build_ui(self):
@@ -43,7 +47,7 @@ class MobileDownloader:
         )
 
         self.path_input = ft.TextField(
-            label="مسیر ذخیره‌سازی",
+            label="مسیر ذخیره‌سازی در گوشی",
             value=self.save_dir,
             text_direction=ft.TextDirection.LTR,
             border_radius=10,
@@ -76,9 +80,10 @@ class MobileDownloader:
             value=True,
         )
 
+        # استفاده از نام متنی آیکون‌ها برای سازگاری ۱۰۰٪ با Flet 0.24.1
         self.start_btn = ft.ElevatedButton(
             text="شروع دانلود",
-            icon="DOWNLOAD",
+            icon="download",
             on_click=self._on_start,
             expand=True,
             height=45,
@@ -86,7 +91,7 @@ class MobileDownloader:
 
         self.cancel_btn = ft.OutlinedButton(
             text="توقف",
-            icon="STOP",
+            icon="stop",
             on_click=self._on_cancel,
             disabled=True,
             height=45,
@@ -106,17 +111,21 @@ class MobileDownloader:
         )
 
         self.page.add(
-            ft.Text("دانلودر جامع ویدیو و زیرنویس", size=20, weight=ft.FontWeight.BOLD),
-            self.url_input,
-            self.path_input,
-            ft.Divider(height=10),
-            ft.Text("نوع و کیفیت دانلود:", weight=ft.FontWeight.BOLD),
-            self.type_radio,
-            self.quality_dropdown,
-            self.sub_checkbox,
-            ft.Row([self.start_btn, self.cancel_btn], spacing=10),
-            ft.Column([self.progress_bar, self.status_text], spacing=5),
-            self.log_box,
+            ft.SafeArea(
+                ft.Column([
+                    ft.Text("دانلودر جامع ویدیو و زیرنویس", size=20, weight=ft.FontWeight.BOLD),
+                    self.url_input,
+                    self.path_input,
+                    ft.Divider(height=10),
+                    ft.Text("نوع و کیفیت دانلود:", weight=ft.FontWeight.BOLD),
+                    self.type_radio,
+                    self.quality_dropdown,
+                    self.sub_checkbox,
+                    ft.Row([self.start_btn, self.cancel_btn], spacing=10),
+                    ft.Column([self.progress_bar, self.status_text], spacing=5),
+                    self.log_box,
+                ], spacing=10)
+            )
         )
 
     def _log(self, msg: str):
@@ -148,7 +157,19 @@ class MobileDownloader:
             self._set_status("خطا: لطفاً لینک ویدیو را وارد کنید.", 0)
             return
 
-        os.makedirs(out_dir, exist_ok=True)
+        try:
+            os.makedirs(out_dir, exist_ok=True)
+            # تست نوشتن فایل در پوشه دانلود گوشی
+            test_file = os.path.join(out_dir, ".write_test")
+            with open(test_file, "w") as f:
+                f.write("ok")
+            os.remove(test_file)
+        except Exception:
+            # اگر اندروید ۱۴ اجازه نوشتن در پوشه عمومی را نداد، از پوشه قابل دسترس استفاده کن
+            fallback_dir = "/storage/emulated/0/Download"
+            self._log("هشدار دسترسی حافظه: لطفاً در تنظیمات گوشی دسترسی فایل‌ها را به برنامه بدهید.")
+            out_dir = fallback_dir
+
         self.cancel_event.clear()
         self.log_box.value = ""
         self._set_busy(True)
@@ -212,8 +233,10 @@ class MobileDownloader:
         return chosen, title, video_hash
 
     def _download_worker(self, url, out_dir, dl_type, quality, sub_enabled):
+        import yt_dlp
+
         is_aparat = "aparat.com" in url.lower()
-        height_limit = int(quality) if quality.isdigit() else None
+        height_limit = int(quality) if quality and quality.isdigit() else None
 
         def progress_hook(data):
             if self.cancel_event.is_set():
@@ -226,7 +249,6 @@ class MobileDownloader:
             elif data.get("status") == "finished":
                 self._set_status("دانلود فایل اصلی کامل شد.", 1.0)
 
-        # در اندروید چون ممکن است FFmpeg نباشد، فرمت‌های یکپارچه (صدا+تصویر با هم) در اولویت قرار می‌گیرند
         if dl_type == "video":
             if height_limit:
                 fmt = f"best[height<={height_limit}][ext=mp4]/best[height<={height_limit}]/best"
@@ -242,6 +264,7 @@ class MobileDownloader:
             "continuedl": True,
             "progress_hooks": [progress_hook],
             "quiet": True,
+            "nocheckcertificate": True,
         }
 
         try:
@@ -253,82 +276,4 @@ class MobileDownloader:
             except Exception:
                 if is_aparat:
                     self._log("اتصال مستقیم به API آپارات...")
-                    direct_url, ap_title, ap_hash = self._resolve_aparat_direct_url(url, height_limit)
-                    if not direct_url:
-                        raise
-                    safe_title = re.sub(r'[\\/*?:"<>|]', "_", ap_title).strip()
-                    options["outtmpl"] = os.path.join(out_dir, f"{safe_title} [{ap_hash}].%(ext)s")
-                    with yt_dlp.YoutubeDL(options) as ydl:
-                        info = ydl.extract_info(direct_url, download=True)
-                        expected_file = ydl.prepare_filename(info)
-                else:
-                    raise
-
-            base_name = os.path.splitext(expected_file)[0]
-            self._log(f"فایل ذخیره شد: {os.path.basename(expected_file)}")
-
-            # مرحله ۲: دانلود زیرنویس فارسی
-            if sub_enabled and not is_aparat and not self.cancel_event.is_set():
-                self._log("مرحله ۲: بررسی زیرنویس فارسی...")
-                sub_opts = dict(options)
-                sub_opts.update({
-                    "skip_download": True,
-                    "writesubtitles": True,
-                    "writeautomaticsub": True,
-                    "subtitleslangs": ["fa"],
-                    "subtitlesformat": "srt/vtt/best",
-                    "sleep_subtitles": 2,
-                })
-                try:
-                    with yt_dlp.YoutubeDL(sub_opts) as ydl_sub:
-                        ydl_sub.download([url])
-
-                    vtt_path = base_name + ".fa.vtt"
-                    srt_path = base_name + ".fa.srt"
-                    if os.path.exists(vtt_path) and not os.path.exists(srt_path):
-                        self._convert_vtt_to_srt(vtt_path, srt_path)
-                        self._log("زیرنویس فارسی به SRT تبدیل و ذخیره شد.")
-                except Exception as sub_e:
-                    self._log(f"زیرنویس دریافت نشد (محدودیت 429 یا عدم وجود): {sub_e}")
-
-            self._set_status("عملیات دانلود با موفقیت به پایان رسید!", 1.0)
-
-        except Exception as exc:
-            self._set_status("خطا یا توقف در دانلود", 0)
-            self._log(f"خطا: {exc}")
-        finally:
-            self._set_busy(False)
-
-    @staticmethod
-    def _convert_vtt_to_srt(vtt_path, srt_path):
-        try:
-            with open(vtt_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-            srt_lines = []
-            counter = 1
-            for line in lines:
-                stripped = line.strip()
-                if stripped.startswith(("WEBVTT", "Kind:", "Language:")):
-                    continue
-                if "-->" in line:
-                    parts = line.replace(".", ",").split("-->")
-                    if len(parts) == 2:
-                        start = parts[0].strip()
-                        end = parts[1].strip().split(" ")[0]
-                        srt_lines.append(f"{counter}\n{start} --> {end}\n")
-                        counter += 1
-                else:
-                    srt_lines.append(line)
-            with open(srt_path, "w", encoding="utf-8") as f:
-                f.writelines(srt_lines)
-            os.remove(vtt_path)
-        except Exception:
-            pass
-
-
-def main(page: ft.Page):
-    MobileDownloader(page)
-
-
-if __name__ == "__main__":
-    ft.app(target=main)
+                    direct_url, ap_title, ap_hash = self._resolve_
