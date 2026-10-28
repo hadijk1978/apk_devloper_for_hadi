@@ -36,23 +36,23 @@ jobs:
           pip install --upgrade pip
           pip install "flet==0.24.1" yt-dlp
 
-      - name: 6. Patch wakelock_plus 1.4.0 Gradle Bug
-        run: |
-          dart pub cache add wakelock_plus --version 1.4.0 || true
-          WAKELOCK_GRADLE="$HOME/.pub-cache/hosted/pub.dev/wakelock_plus-1.4.0/android/build.gradle"
-          if [ -f "$WAKELOCK_GRADLE" ]; then
-            sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' "$WAKELOCK_GRADLE"
-            sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' "$WAKELOCK_GRADLE"
-            echo "Patched wakelock_plus build.gradle successfully!"
-          fi
-
-      - name: 7. Build Android APK
+      - name: 6. Prepare Fixed Flet Template & Build APK
         env:
           PYTHONUTF8: "1"
         run: |
-          flet build apk -v
+          git clone --branch 0.24.1 --depth 1 https://github.com/flet-dev/flet-build-template.git /tmp/flet-template
+          python3 -c '
+          p = "/tmp/flet-template/{{cookiecutter.out_dir}}/pubspec.yaml"
+          txt = open(p).read()
+          txt = txt.replace("wakelock_plus: ^1.2.8", "wakelock_plus: 1.2.8")
+          txt = txt.replace("package_info_plus: ^8.0.2", "package_info_plus: 8.0.2")
+          txt += "\ndependency_overrides:\n  wakelock_plus: 1.2.8\n  package_info_plus: 8.0.2\n"
+          open(p, "w").write(txt)
+          print("Template pubspec.yaml locked to stable versions successfully!")
+          '
+          flet build apk -v --template-dir /tmp/flet-template
 
-      - name: 8. Upload APK Artifact
+      - name: 7. Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: VideoDownloader-Android-APK
